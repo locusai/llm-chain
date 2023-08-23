@@ -287,14 +287,20 @@ impl<'a> LLamaTokenizer<'a> {
 
 impl Tokenizer for LLamaTokenizer<'_> {
     fn tokenize_str(&self, doc: &str) -> Result<TokenCollection, TokenizerError> {
-        let context = self.context.blocking_lock();
-        let tokenized = tokenize(&context, doc, true);
+        let tokenized = tokio::task::block_in_place(move || {
+            let context = self.context.blocking_lock();
+            let tokenized = tokenize(&context, doc, true);
+            tokenized
+        });
         Ok(tokenized.into())
     }
 
     fn to_string(&self, tokens: TokenCollection) -> Result<String, TokenizerError> {
-        let context = self.context.blocking_lock();
-        let output = embedding_to_output(&context, &tokens.as_i32()?);
+        let output = tokio::task::block_in_place(move || {
+            let context = self.context.blocking_lock();
+            let output = embedding_to_output(&context, &tokens.as_i32().unwrap());
+            output
+        });
         Ok(output.to_string())
     }
 }
